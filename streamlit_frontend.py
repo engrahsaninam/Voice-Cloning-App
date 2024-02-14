@@ -1,6 +1,7 @@
 import streamlit as st
 import requests
 import os
+import sox
 
 # Set Streamlit theme to light with a gradient
 st.set_page_config(
@@ -48,6 +49,7 @@ if st.button("Generate Voice"):
     with st.spinner("Generating Voice..."):
         # Break down the text into pieces of length 150 characters
         text_pieces = [text_input[i:i+150] for i in range(0, len(text_input), 150)]
+        print(text_pieces)
 
         # Create a list to store audio file paths
         audio_paths = []
@@ -94,7 +96,11 @@ if st.button("Generate Voice"):
         # Combine audio files into one
         if len(audio_paths) > 0:
             combined_audio_path = "combined_audio.wav"
-            os.system(f"sox {' '.join(audio_paths)} {combined_audio_path}")
+            # Combine the audio files
+            combined_audio = sox.Combine()
+            for file_path in audio_paths:
+                combined_audio.input(file_path)
+            combined_audio.execute(combined_audio_path)
 
             # Play the combined audio using Streamlit
             st.audio(combined_audio_path)
