@@ -1,3 +1,4 @@
 streamlit>=1.17.1
 requests>=2.28.1
-sox=1.4.1
+numpy
+soundfile
