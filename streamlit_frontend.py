@@ -22,8 +22,9 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# API endpoint URL
-api_url = "https://futureforge-fastapi-production.up.railway.app/metavoice"
+# API endpoints
+alpha_api_url = "https://futureforge-fastapi-production.up.railway.app/metavoice"
+xtts_api_url = "https://futureforge-fastapi-production.up.railway.app/xtts"
 
 # Streamlit App Header with relevant graphic
 st.image("logo.png", width=200)
@@ -35,6 +36,12 @@ st.header("Enter Text and Input Audio URL")
 # Improved styling for input fields
 text_input = st.text_area("Text to Convert", "")
 audio_input = st.text_input("Input Audio URL", "")
+
+# Dropdown for selecting model
+model_selection = st.selectbox("Select Model", ["Alpha", "XTTS"])
+
+# Update API URL based on model selection
+api_url = alpha_api_url if model_selection == "Alpha" else xtts_api_url
 
 # Button to Trigger API Request
 if st.button("Generate Voice"):
