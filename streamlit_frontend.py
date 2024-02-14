@@ -1,7 +1,8 @@
 import streamlit as st
 import requests
 import os
-import sox
+import numpy as np
+import soundfile as sf
 
 # Set Streamlit theme to light with a gradient
 st.set_page_config(
@@ -24,8 +25,10 @@ st.markdown(
 )
 
 # API endpoints
-alpha_api_url = "https://futureforge-fastapi-production.up.railway.app/metavoice"
-xtts_api_url = "https://futureforge-fastapi-production.up.railway.app/xtts"
+endpoints = {
+    "Alpha": "https://futureforge-fastapi-production.up.railway.app/metavoice",
+    "XTTS": "https://futureforge-fastapi-production.up.railway.app/xtts"
+}
 
 # Streamlit App Header with relevant graphic
 st.image("logo.png", width=200)
@@ -38,28 +41,24 @@ st.header("Enter Text and Input Audio URL")
 text_input = st.text_area("Text to Convert", "")
 audio_input = st.text_input("Input Audio URL", "")
 
-# Dropdown for selecting model
-model_selection = st.selectbox("Select Model", ["Alpha", "XTTS"])
-
-# Update API URL based on model selection
-api_url = alpha_api_url if model_selection == "Alpha" else xtts_api_url
+# Dropdown for selecting the model
+selected_model = st.selectbox("Select Model", list(endpoints.keys()))
 
 # Button to Trigger API Request
 if st.button("Generate Voice"):
     with st.spinner("Generating Voice..."):
         # Break down the text into pieces of length 150 characters
         text_pieces = [text_input[i:i+150] for i in range(0, len(text_input), 150)]
-        print(text_pieces)
 
         # Create a list to store audio file paths
         audio_paths = []
 
-        # Process each text piece using the API
+        # Process each text piece using the selected API endpoint
         for i, piece in enumerate(text_pieces):
             payload = {"text": piece, "input_audio": audio_input}
             try:
                 response = requests.post(
-                    api_url,
+                    endpoints[selected_model],
                     json=payload,
                     headers={"accept": "application/json", "Content-Type": "application/json"},
                 )
@@ -92,15 +91,16 @@ if st.button("Generate Voice"):
             except requests.exceptions.RequestException as e:
                 st.error(f"Error: {e}. Please try again later.")
                 break  # Stop processing if an error occurs
-
         # Combine audio files into one
         if len(audio_paths) > 0:
-            combined_audio_path = "combined_audio.wav"
-            # Combine the audio files
-            combined_audio = sox.Combine()
-            for file_path in audio_paths:
-                combined_audio.input(file_path)
-            combined_audio.execute(combined_audio_path)
+            audio_list = [sf.read(filepath) for filepath in audio_paths]
+            samplerate=audio_list[0][1]
+            audio_list=[audio[0] for audio in audio_list]
+            # Concatenate the audio files
+            concatenated_audio = np.concatenate(audio_list)
+            combined_audio_path= "combined_audio.wav"
+            # Save the concatenated audio to a new file
+            sf.write(combined_audio_path, concatenated_audio, samplerate=samplerate)
 
             # Play the combined audio using Streamlit
             st.audio(combined_audio_path)
