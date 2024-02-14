@@ -39,46 +39,62 @@ audio_input = st.text_input("Input Audio URL", "")
 # Button to Trigger API Request
 if st.button("Generate Voice"):
     with st.spinner("Generating Voice..."):
-        # API Request Payload
-        payload = {"text": text_input, "input_audio": audio_input}
+        # Break down the text into pieces of length 150 characters
+        text_pieces = [text_input[i:i+150] for i in range(0, len(text_input), 150)]
 
-        # API Request
-        try:
-            response = requests.post(
-                api_url,
-                json=payload,
-                headers={"accept": "application/json", "Content-Type": "application/json"},
-            )
-            if response.status_code == 200:
-                audio_url = response.json()["audio_url"]  # Extract the audio URL from the response
+        # Create a list to store audio file paths
+        audio_paths = []
 
-                # Download the audio file
-                try:
-                    response = requests.get(
-                        audio_url, stream=True
-                    )  # Stream the download for efficiency
-                    response.raise_for_status()  # Raise an exception for error status codes
+        # Process each text piece using the API
+        for i, piece in enumerate(text_pieces):
+            payload = {"text": piece, "input_audio": audio_input}
+            try:
+                response = requests.post(
+                    api_url,
+                    json=payload,
+                    headers={"accept": "application/json", "Content-Type": "application/json"},
+                )
+                if response.status_code == 200:
+                    audio_url = response.json()["audio_url"]
 
-                    # Create a temporary file to store the audio data
-                    with st.empty():
-                        with open("temp_audio.wav", "wb") as f:
+                    # Download the audio file
+                    try:
+                        response = requests.get(audio_url, stream=True)
+                        response.raise_for_status()
+
+                        # Create a temporary file to store the audio data
+                        with open(f"temp_audio_{i}.wav", "wb") as f:
                             for chunk in response.iter_content(1024):
                                 f.write(chunk)
 
-                    # Play the audio using Streamlit
-                    st.audio("temp_audio.wav")
+                        # Append the audio file path to the list
+                        audio_paths.append(f"temp_audio_{i}.wav")
 
-                except requests.exceptions.RequestException as e:
-                    st.error(f"Error downloading audio: {e}")
+                    except requests.exceptions.RequestException as e:
+                        st.error(f"Error downloading audio: {e}")
+                        break  # Stop processing if an error occurs
 
-                # Remove the temporary file (optional)
+                else:
+                    st.error(
+                        f"Error: {response.status_code}. Please check your input and try again."
+                    )
+                    break  # Stop processing if an error occurs
+
+            except requests.exceptions.RequestException as e:
+                st.error(f"Error: {e}. Please try again later.")
+                break  # Stop processing if an error occurs
+
+        # Combine audio files into one
+        if len(audio_paths) > 0:
+            combined_audio_path = "combined_audio.wav"
+            os.system(f"sox {' '.join(audio_paths)} {combined_audio_path}")
+
+            # Play the combined audio using Streamlit
+            st.audio(combined_audio_path)
+
+            # Remove temporary audio files
+            for path in audio_paths:
                 try:
-                    os.remove("temp_audio.wav")
+                    os.remove(path)
                 except OSError:
-                    pass  # Ignore errors if the file doesn't exist
-            else:
-                st.error(
-                    f"Error: {response.status_code}. Please check your input and try again."
-                )
-        except requests.exceptions.RequestException as e:
-            st.error(f"Error: {e}. Please try again later.")
+                    pass
